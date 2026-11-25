@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Automation Framework | Demo Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="page" data-testid="homepage">
+      <header class="site-header">
+        <div class="brand" data-testid="site-brand">Payment Automation Framework</div>
+        <div class="badge" data-testid="test-mode-badge">Razorpay Test Mode</div>
+      </header>
+
+      <section class="shop-layout">
+        <article class="card product-card" data-testid="product-card">
+          <div class="product-media">
+            <img
+              src="{{ url_for('static', filename='images/headphones.svg') }}"
+              alt="Wireless Headphones"
+              data-testid="product-image"
+            />
+          </div>
+          <h1 class="product-name" data-testid="product-name">{{ product.name }}</h1>
+          <p class="product-price" data-testid="product-price">
+            ₹{{ "{:,}".format(product.price_inr) }}
+          </p>
+          <p class="product-desc" data-testid="product-description">
+            {{ product.description }}
+          </p>
+          <div class="actions">
+            <button
+              type="button"
+              class="btn-primary"
+              data-testid="add-to-cart"
+              id="add-to-cart"
+            >
+              Add to Cart
+            </button>
+          </div>
+        </article>
+
+        <aside class="card cart-card" data-testid="cart-panel">
+          <h2>Cart summary</h2>
+          <div data-testid="cart-summary" id="cart-summary"></div>
+          <div class="cart-total">
+            <span>Total</span>
+            <span data-testid="cart-total" id="cart-total">₹0</span>
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              class="btn-secondary"
+              data-testid="proceed-to-payment"
+              id="proceed-to-payment"
+              disabled
+            >
+              Proceed to Payment
+            </button>
+          </div>
+
+          <section class="status-card" style="padding: 1rem 0 0; box-shadow: none; border: 0;">
+            <h2>Payment status</h2>
+            <p class="status-message" data-testid="payment-status" id="payment-status"></p>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      window.APP_CONFIG = {
+        product: {
+          id: {{ product.id|tojson }},
+          name: {{ product.name|tojson }},
+          price_inr: {{ product.price_inr }},
+          currency: {{ product.currency|tojson }}
+        }
+      };
+    </script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="{{ url_for('static', filename='js/payment.js') }}"></script>
+  </body>
+</html>

@@ -1,0 +1,251 @@
+:root {
+  --bg: #f4f7f6;
+  --surface: #ffffff;
+  --ink: #10231f;
+  --muted: #5b6b66;
+  --accent: #0f766e;
+  --accent-dark: #0b5a54;
+  --border: #d7e3df;
+  --danger: #b42318;
+  --ok: #067647;
+  --shadow: 0 18px 40px rgba(16, 35, 31, 0.08);
+  --radius: 18px;
+  --font-display: "Segoe UI", "Trebuchet MS", sans-serif;
+  --font-body: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.16), transparent 36%),
+    linear-gradient(180deg, #eef5f3 0%, var(--bg) 48%, #e8f0ee 100%);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.page {
+  width: min(1080px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--accent-dark);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.shop-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 1.25rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.product-card {
+  padding: 1.25rem;
+}
+
+.product-media {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #ecfdf5, #f8fffc);
+  border-radius: 14px;
+  min-height: 280px;
+  margin-bottom: 1rem;
+}
+
+.product-media img {
+  width: min(280px, 100%);
+  height: auto;
+}
+
+.product-name {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2vw, 2rem);
+}
+
+.product-price {
+  margin: 0 0 0.75rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.product-desc {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.cart-card,
+.status-card {
+  padding: 1.25rem;
+}
+
+.cart-card h2,
+.status-card h2,
+.result-card h1 {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.cart-empty,
+.cart-line {
+  color: var(--muted);
+  min-height: 3rem;
+}
+
+.cart-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+}
+
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  margin: 1rem 0 1.25rem;
+  font-weight: 700;
+}
+
+.actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+button {
+  font: inherit;
+  border: none;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-dark);
+}
+
+.btn-secondary {
+  background: #e7f2ef;
+  color: var(--accent-dark);
+}
+
+.status-message {
+  min-height: 1.4rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.status-message.is-error {
+  color: var(--danger);
+}
+
+.status-message.is-ok {
+  color: var(--ok);
+}
+
+.result-page {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+}
+
+.result-card {
+  width: min(520px, 100%);
+  padding: 2rem;
+  text-align: center;
+}
+
+.result-card p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.result-meta {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #f3faf8;
+  text-align: left;
+  font-size: 0.92rem;
+}
+
+.result-meta dt {
+  color: var(--muted);
+  margin-top: 0.55rem;
+}
+
+.result-meta dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+@media (max-width: 840px) {
+  .shop-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .site-header {
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-direction: column;
+  }
+}

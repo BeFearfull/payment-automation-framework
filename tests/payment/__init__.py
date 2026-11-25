@@ -1,0 +1,1 @@
+"""Payment verification automation tests."""

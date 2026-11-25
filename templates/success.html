@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Success</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="page result-page" data-testid="payment-success-page">
+      <section class="card result-card">
+        <h1 data-testid="success-title">Payment successful</h1>
+        <p data-testid="success-message">
+          Backend signature verification passed for your Razorpay Test Mode payment.
+        </p>
+        <dl class="result-meta" data-testid="success-details">
+          <dt>Product</dt>
+          <dd data-testid="success-product">{{ payment.product_name }}</dd>
+          <dt>Amount</dt>
+          <dd data-testid="success-amount">₹{{ "{:,}".format(payment.amount_inr) }}</dd>
+          <dt>Order ID</dt>
+          <dd data-testid="success-order-id">{{ payment.razorpay_order_id }}</dd>
+          <dt>Payment ID</dt>
+          <dd data-testid="success-payment-id">{{ payment.razorpay_payment_id }}</dd>
+        </dl>
+        <a class="btn-primary" style="display: inline-block;" href="{{ url_for('home') }}" data-testid="back-home">
+          Back to shop
+        </a>
+      </section>
+    </main>
+  </body>
+</html>

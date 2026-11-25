@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Failure</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="page result-page" data-testid="payment-failure-page">
+      <section class="card result-card">
+        <h1 data-testid="failure-title">Payment failed</h1>
+        <p data-testid="failure-message">{{ reason }}</p>
+        <p data-testid="failure-product">
+          Attempted product: {{ product.name }} (₹{{ "{:,}".format(product.price_inr) }})
+        </p>
+        <a class="btn-primary" style="display: inline-block;" href="{{ url_for('home') }}" data-testid="retry-home">
+          Try again
+        </a>
+      </section>
+    </main>
+  </body>
+</html>

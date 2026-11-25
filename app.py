@@ -28,7 +28,12 @@ from config.settings import (
     RAZORPAY_KEY_SECRET,
 )
 from utils.logger import get_logger
-from utils.payment_verification import create_razorpay_client, verify_payment_signature
+from utils.payment_verification import (
+    PaymentLifecycleError,
+    create_razorpay_client,
+    verify_payment_lifecycle,
+    verify_payment_signature,
+)
 
 logger = get_logger(__name__)
 
@@ -73,7 +78,9 @@ def checkout_page() -> Any:
 @app.post("/create-order")
 def create_order() -> Any:
     """Create a Razorpay Test Mode order on the server."""
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
     product_id = payload.get("product_id")
     quantity = payload.get("quantity", 1)
     client_request_id = str(payload.get("client_request_id") or "").strip()
@@ -81,6 +88,9 @@ def create_order() -> Any:
     if product_id != PRODUCT["id"]:
         return jsonify({"error": "Unknown product."}), 400
 
+    # Reject bool (subclass of int) and non-integral floats before coercion.
+    if isinstance(quantity, bool) or isinstance(quantity, float):
+        return jsonify({"error": "quantity must be an integer."}), 400
     try:
         quantity = int(quantity)
     except (TypeError, ValueError):
@@ -146,10 +156,43 @@ def create_order() -> Any:
     ), 201
 
 
+def _session_has_protected_verification() -> bool:
+    """True when the browser session already holds a successfully verified order."""
+    if not session.get("payment_verified"):
+        return False
+    verified = session.get("verified_payment") or {}
+    order_id = str(verified.get("razorpay_order_id") or "").strip()
+    if not order_id:
+        return False
+    with _order_lock:
+        return order_id in _verified_orders
+
+
+def _safe_clear_session_on_failure() -> None:
+    """
+    Clear unverified session state after a failed attempt.
+
+    Never wipe a session that already completed lifecycle verification for a
+    recorded order (failed replays must not overwrite success).
+    """
+    if _session_has_protected_verification():
+        logger.info("Preserving verified payment session after failed replay")
+        return
+    session.pop("verified_payment", None)
+    session.pop("payment_verified", None)
+
+
 @app.post("/verify-payment")
 def verify_payment() -> Any:
-    """Verify Razorpay payment signature before marking success."""
-    payload = request.get_json(silent=True) or {}
+    """
+    Verify Checkout fields, then confirm Razorpay payment lifecycle.
+
+    Success requires: valid signature AND payment.fetch/order.fetch showing
+    captured status with matching order, amount, and currency.
+    """
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
     required = ("razorpay_order_id", "razorpay_payment_id", "razorpay_signature")
     missing = [field for field in required if not payload.get(field)]
     if missing:
@@ -165,22 +208,8 @@ def verify_payment() -> Any:
     if not order_id or not payment_id or not signature:
         return jsonify({"error": "Malformed payment verification payload."}), 400
 
-    with _order_lock:
-        if order_id in _verified_orders:
-            # Idempotent success for the same verified order.
-            session["verified_payment"] = {
-                "razorpay_order_id": order_id,
-                "razorpay_payment_id": payment_id,
-                "product_name": PRODUCT["name"],
-                "amount_inr": PRODUCT["price_inr"],
-            }
-            return jsonify(
-                {
-                    "status": "already_verified",
-                    "redirect_url": url_for("payment_success"),
-                }
-            ), 200
-
+    # 1) Signature first — including idempotent retries — so a known order_id
+    # cannot be replayed with a forged payment_id/signature.
     try:
         verify_payment_signature(
             razorpay_client,
@@ -190,13 +219,43 @@ def verify_payment() -> Any:
         )
     except SignatureVerificationError:
         logger.warning("Signature verification failed for order_id=%s", order_id)
-        session.pop("verified_payment", None)
+        _safe_clear_session_on_failure()
         return jsonify({"error": "Payment signature verification failed."}), 400
     except Exception as exc:  # noqa: BLE001
-        logger.exception("Unexpected verification error")
+        logger.exception("Unexpected signature verification error")
+        return jsonify({"error": "Verification error.", "details": str(exc)}), 500
+
+    # 2) Independent Razorpay lifecycle checks (never trust browser amount/status).
+    try:
+        lifecycle = verify_payment_lifecycle(
+            razorpay_client,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            expected_amount=PRODUCT["amount_paise"],
+            expected_currency=PRODUCT["currency"],
+        )
+    except PaymentLifecycleError as exc:
+        logger.warning(
+            "Payment lifecycle rejected order_id=%s code=%s status=%s",
+            order_id,
+            exc.code,
+            exc.payment_status,
+        )
+        _safe_clear_session_on_failure()
+        body: dict[str, Any] = {
+            "error": exc.message,
+            "code": exc.code,
+        }
+        if exc.payment_status:
+            body["payment_status"] = exc.payment_status
+        return jsonify(body), exc.http_status
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Unexpected payment lifecycle error")
+        _safe_clear_session_on_failure()
         return jsonify({"error": "Verification error.", "details": str(exc)}), 500
 
     with _order_lock:
+        already_seen = order_id in _verified_orders
         _verified_orders.add(order_id)
 
     session["verified_payment"] = {
@@ -204,12 +263,16 @@ def verify_payment() -> Any:
         "razorpay_payment_id": payment_id,
         "product_name": PRODUCT["name"],
         "amount_inr": PRODUCT["price_inr"],
+        "payment_status": lifecycle.get("status"),
+        "currency": lifecycle.get("currency"),
+        "amount_paise": lifecycle.get("amount"),
     }
     session["payment_verified"] = True
 
     return jsonify(
         {
-            "status": "verified",
+            "status": "already_verified" if already_seen else "verified",
+            "payment_status": lifecycle.get("status"),
             "redirect_url": url_for("payment_success"),
         }
     ), 200

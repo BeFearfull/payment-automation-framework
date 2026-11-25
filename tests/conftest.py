@@ -36,6 +36,18 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "payment: Payment verification and order-security tests",
     )
+    config.addinivalue_line(
+        "markers",
+        "unit: Isolated unit tests (mocked; not live Razorpay transactions)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "otp: Razorpay Test Mode mock OTP / second-factor automation tests",
+    )
+    config.addinivalue_line(
+        "markers",
+        "security: Security and session/secret exposure tests",
+    )
 
 
 def _free_port() -> int:
@@ -148,6 +160,21 @@ def api_client(base_url: str) -> requests.Session:
     session.headers.update({"Content-Type": "application/json"})
     session.base_url = base_url  # type: ignore[attr-defined]
     return session
+
+
+@pytest.fixture
+def flask_client():
+    """
+    Flask test client for isolated unit tests.
+
+    Does not start a network server. Mock Razorpay interactions in unit tests —
+    results here are not live Razorpay transactions.
+    """
+    from app import app
+
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        yield client
 
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)

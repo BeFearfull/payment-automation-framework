@@ -8,7 +8,8 @@ import uuid
 import pytest
 from playwright.sync_api import Page
 
-from tests.helpers.api import make_test_signature, verify_payment
+from tests.helpers.api import verify_payment
+from tests.helpers.lifecycle_mocks import flask_session_cookie, mock_captured_lifecycle
 from tests.pages.payment_page import PaymentPage
 
 logger = logging.getLogger("tests.payment.test_payment")
@@ -17,19 +18,17 @@ PRICE_TEXT = "₹1,499"
 PRODUCT_NAME = "Wireless Headphones"
 
 
-def _inject_session_cookies(page: Page, base_url: str, requests_session) -> None:
-    cookies = []
-    for cookie in requests_session.cookies:
-        cookies.append(
+def _inject_session_cookie(page: Page, base_url: str, session_value: str) -> None:
+    page.context.add_cookies(
+        [
             {
-                "name": cookie.name,
-                "value": cookie.value,
+                "name": "session",
+                "value": session_value,
                 "url": base_url,
                 "httpOnly": True,
             }
-        )
-    if cookies:
-        page.context.add_cookies(cookies)
+        ]
+    )
 
 
 @pytest.mark.payment
@@ -37,37 +36,40 @@ def test_web_10_success_only_after_server_verification(
     page: Page,
     base_url: str,
     payment_page: PaymentPage,
+    flask_client,
 ) -> None:
     """
     WEB-10: Payment success is displayed only after server-side verification.
 
-    Uses a locally computed Test Mode HMAC to exercise the verification gate.
-    This does not create or claim a live Razorpay captured payment.
+    Uses mocked signature + captured lifecycle (not a live Razorpay capture).
+    Unverified access is checked against the live Test Mode app server.
     """
     # Negative: unverified browser session cannot open success.
     payment_page.open_success()
     payment_page.expect_redirected_away_from_success()
     logger.info("WEB-10 negative path: unverified access redirected to failure")
 
-    # Positive gate: valid server-side signature unlocks success page.
-    import requests
-
     order_id = f"order_gate_{uuid.uuid4().hex[:10]}"
     payment_id = f"pay_gate_{uuid.uuid4().hex[:10]}"
-    signature = make_test_signature(order_id, payment_id)
 
-    api = requests.Session()
-    response = verify_payment(
-        api,
-        base_url,
-        razorpay_order_id=order_id,
-        razorpay_payment_id=payment_id,
-        razorpay_signature=signature,
-    )
-    assert response.status_code == 200, response.text
-    assert response.json().get("status") in {"verified", "already_verified"}
+    with mock_captured_lifecycle(order_id=order_id, payment_id=payment_id):
+        response = flask_client.post(
+            "/verify-payment",
+            json={
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": "mock-sig",
+            },
+        )
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert body.get("status") in {"verified", "already_verified"}
+    assert body.get("payment_status") == "captured"
 
-    _inject_session_cookies(page, base_url, api)
+    cookie_value = flask_session_cookie(flask_client)
+    assert cookie_value, "Expected Flask session cookie after successful verify"
+    _inject_session_cookie(page, base_url, cookie_value)
+
     payment_page.open_success()
     payment_page.expect_success(
         product_name=PRODUCT_NAME,
@@ -76,8 +78,8 @@ def test_web_10_success_only_after_server_verification(
         payment_id=payment_id,
     )
     logger.info(
-        "WEB-10 passed: success page rendered only after verify-payment. "
-        "Note: signature was computed for gate testing; not a live Razorpay capture."
+        "WEB-10 passed: success page rendered only after verify-payment "
+        "(mocked captured lifecycle; not a live Razorpay capture claim)."
     )
 
 

@@ -36,21 +36,41 @@ def verify_payment(
     session: requests.Session,
     base_url: str,
     *,
-    razorpay_order_id: str,
-    razorpay_payment_id: str,
-    razorpay_signature: str,
+    razorpay_order_id: str | None = None,
+    razorpay_payment_id: str | None = None,
+    razorpay_signature: str | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> requests.Response:
-    payload = {
-        "razorpay_order_id": razorpay_order_id,
-        "razorpay_payment_id": razorpay_payment_id,
-        "razorpay_signature": razorpay_signature,
-    }
+    if payload is None:
+        payload = {}
+        if razorpay_order_id is not None:
+            payload["razorpay_order_id"] = razorpay_order_id
+        if razorpay_payment_id is not None:
+            payload["razorpay_payment_id"] = razorpay_payment_id
+        if razorpay_signature is not None:
+            payload["razorpay_signature"] = razorpay_signature
     logger.info(
-        "POST /verify-payment order_id=%s payment_id=%s",
-        razorpay_order_id,
-        razorpay_payment_id,
+        "POST /verify-payment fields=%s",
+        sorted(payload.keys()),
     )
     return session.post(f"{base_url}/verify-payment", json=payload, timeout=30)
+
+
+def post_raw(
+    session: requests.Session,
+    base_url: str,
+    path: str,
+    *,
+    data: bytes | str,
+    content_type: str,
+) -> requests.Response:
+    logger.info("POST %s content_type=%s", path, content_type)
+    return session.post(
+        f"{base_url}{path}",
+        data=data,
+        headers={"Content-Type": content_type},
+        timeout=30,
+    )
 
 
 def make_test_signature(order_id: str, payment_id: str) -> str:
@@ -63,24 +83,3 @@ def make_test_signature(order_id: str, payment_id: str) -> str:
     message = f"{order_id}|{payment_id}".encode("utf-8")
     secret = RAZORPAY_KEY_SECRET.encode("utf-8")
     return hmac.new(secret, message, hashlib.sha256).hexdigest()
-
-
-def verified_success_session(
-    base_url: str,
-    *,
-    order_id: str = "order_test_gate_001",
-    payment_id: str = "pay_test_gate_001",
-) -> tuple[requests.Session, dict[str, Any]]:
-    """Verify with a locally computed Test Mode signature and keep cookies."""
-    session = requests.Session()
-    signature = make_test_signature(order_id, payment_id)
-    response = verify_payment(
-        session,
-        base_url,
-        razorpay_order_id=order_id,
-        razorpay_payment_id=payment_id,
-        razorpay_signature=signature,
-    )
-    logger.info("Gate verification status=%s body=%s", response.status_code, response.text)
-    response.raise_for_status()
-    return session, response.json()

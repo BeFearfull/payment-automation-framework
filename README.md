@@ -29,8 +29,12 @@ pip install -r requirements.txt
 python -m playwright install chromium
 
 copy .env.example .env
+if u want to use the protected .env.age file
+use - age -d -o .env .env.age
+then enter the provided passphrase
 # Edit .env and set Razorpay Test Mode keys (rzp_test_* only).
 ```
+
 
 ### `.env` configuration
 
